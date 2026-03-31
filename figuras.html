@@ -1,0 +1,518 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<title>GeoMaster Pro v6.0</title>
+
+<style>
+:root{
+    --primary:#3b82f6;
+    --bg:#f1f5f9;
+}
+
+body{
+    font-family:'Segoe UI';
+    background:var(--bg);
+    display:flex;
+    justify-content:center;
+    padding:20px;
+}
+
+.container{
+    width:100%;
+    max-width:1100px;
+    background:white;
+    padding:25px;
+    border-radius:15px;
+    box-shadow:0 10px 25px rgba(0,0,0,0.1);
+}
+
+h1{text-align:center;}
+
+.menu-grid{
+    display:grid;
+    grid-template-columns:repeat(auto-fit,minmax(130px,1fr));
+    gap:10px;
+}
+
+.btn{
+    padding:10px;
+    border-radius:10px;
+    border:1px solid #ddd;
+    cursor:pointer;
+    text-align:center;
+}
+
+.btn.active{
+    background:var(--primary);
+    color:white;
+}
+
+.workspace{
+    display:grid;
+    grid-template-columns:1fr 1fr;
+    gap:20px;
+    margin-top:20px;
+}
+
+.controls{
+    display:flex;
+    flex-direction:column;
+    gap:10px;
+}
+
+input, select{
+    padding:10px;
+    border-radius:8px;
+    border:1px solid #ccc;
+}
+
+canvas{
+    border:1px solid #ccc;
+    border-radius:10px;
+    background:white;
+}
+
+button{
+    width:100%;
+    padding:15px;
+    margin-top:20px;
+    background:var(--primary);
+    color:white;
+    border:none;
+    border-radius:10px;
+    font-weight:bold;
+    cursor:pointer;
+}
+
+.result{
+    margin-top:20px;
+    padding:15px;
+    background:#0f172a;
+    color:white;
+    border-radius:10px;
+    text-align:center;
+    font-size:1.3em;
+}
+</style>
+</head>
+
+<body>
+
+<div class="container">
+
+<h1>📐 EVIDENCIA GA2-240201528-AA4 <br> Fabio Leonardo Garzon</h1>
+
+<h3>Figuras Planas</h3>
+<div class="menu-grid">
+<div class="btn" onclick="setup('cuadrado',event)">Cuadrado</div>
+<div class="btn" onclick="setup('rectangulo',event)">Rectángulo</div>
+<div class="btn" onclick="setup('circulo',event)">Círculo</div>
+<div class="btn" onclick="setup('triangulo',event)">Triángulo</div>
+<div class="btn" onclick="setup('trapecio',event)">Trapecio</div>
+</div>
+
+<h3>Figuras 3D</h3>
+<div class="menu-grid">
+<div class="btn" onclick="setup('cubo',event)">Cubo</div>
+<div class="btn" onclick="setup('esfera',event)">Esfera</div>
+<div class="btn" onclick="setup('cilindro',event)">Cilindro</div>
+<div class="btn" onclick="setup('cono',event)">Cono</div>
+<div class="btn" onclick="setup('prisma',event)">Prisma</div>
+</div>
+
+<h3>Figuras Irregulares</h3>
+<div class="menu-grid">
+<div class="btn" onclick="setup('l',event)">Forma L</div>
+<div class="btn" onclick="setup('t',event)">Forma T</div>
+<div class="btn" onclick="setup('cruz',event)">Cruz</div>
+<div class="btn" onclick="setup('cometa',event)">Cometa</div>
+</div>
+
+<h3>Irregulares 3D </h3>
+<div class="menu-grid">
+    <div class="btn" onclick="setup('l3d',event)">L 3D</div>
+    <div class="btn" onclick="setup('t3d',event)">T 3D</div>
+    <div class="btn" onclick="setup('cruz3d',event)">Cruz 3D</div>
+    <div class="btn" onclick="setup('cometa3d',event)">Cometa 3D</div>
+</div>
+
+<div class="workspace">
+
+<div class="controls" id="inputs">
+<p>Selecciona una figura</p>
+</div>
+
+<canvas id="canvas" width="450" height="300"></canvas>
+
+</div>
+
+<button onclick="calcular()">CALCULAR</button>
+
+<div class="result" id="resultado">Resultado: --</div>
+
+</div>
+
+<script>
+
+let figura='';
+let tipo='area';
+
+const canvas=document.getElementById("canvas");
+const ctx=canvas.getContext("2d");
+
+function setup(f,e){
+
+figura=f;
+
+document.querySelectorAll('.btn').forEach(b=>b.classList.remove('active'));
+e.target.classList.add('active');
+
+const inputs=document.getElementById("inputs");
+inputs.innerHTML=`<h3>${f.toUpperCase()}</h3>`;
+
+// tipo cálculo
+if(f.includes("3d") || ['cubo','esfera','cilindro','cono','prisma'].includes(f)){
+inputs.innerHTML+=`
+<select onchange="tipo=this.value">
+<option value="area">Área</option>
+<option value="volumen">Volumen</option>
+</select>`;
+}else{
+tipo='area';
+inputs.innerHTML+=`<p>Solo área disponible</p>`;
+}
+
+// inputs
+const cfg={
+cuadrado:['Lado'],
+rectangulo:['Base','Altura'],
+circulo:['Radio'],
+triangulo:['Base','Altura'],
+trapecio:['Base Mayor','Base Menor','Altura'],
+
+cubo:['Lado'],
+esfera:['Radio'],
+cilindro:['Radio','Altura'],
+cono:['Radio','Altura'],
+prisma:['Base','Altura'],
+
+l:['Ancho','Alto','Grosor'],
+t:['Ancho','Alto','Grosor'],
+cruz:['Brazo'],
+cometa:['Diag Mayor','Diag Menor'],
+l3d:['Ancho','Alto','Grosor','Profundidad'],
+t3d:['Ancho','Alto','Grosor','Profundidad'],
+cruz3d:['Lado','Profundidad'],
+cometa3d:['Diag Mayor','Diag Menor','Profundidad']
+};
+
+cfg[f].forEach((e,i)=>{
+inputs.innerHTML+=`<input id="v${i}" type="number" placeholder="${e} cm">`;
+});
+
+draw(f);
+}
+
+function draw(f){
+ctx.clearRect(0,0,450,300);
+
+switch(f){
+
+case 'cuadrado':
+ctx.fillStyle="#93c5fd";
+ctx.fillRect(170,90,100,100);
+break;
+
+case 'rectangulo':
+ctx.fillStyle="#93c5fd";
+ctx.fillRect(150,90,150,100);
+break;
+
+case 'circulo':
+let gradC=ctx.createRadialGradient(220,150,10,220,150,60);
+gradC.addColorStop(0,"#bfdbfe");
+gradC.addColorStop(1,"#1d4ed8");
+ctx.fillStyle=gradC;
+ctx.beginPath();
+ctx.arc(220,150,60,0,Math.PI*2);
+ctx.fill();
+break;
+
+// 🔥 CUBO 3D
+case 'cubo':
+ctx.fillStyle="#60a5fa";
+ctx.fillRect(150,100,100,100);
+
+ctx.fillStyle="#3b82f6";
+ctx.beginPath();
+ctx.moveTo(250,100);
+ctx.lineTo(280,70);
+ctx.lineTo(280,170);
+ctx.lineTo(250,200);
+ctx.closePath();
+ctx.fill();
+
+ctx.fillStyle="#93c5fd";
+ctx.beginPath();
+ctx.moveTo(150,100);
+ctx.lineTo(180,70);
+ctx.lineTo(280,70);
+ctx.lineTo(250,100);
+ctx.closePath();
+ctx.fill();
+break;
+
+// ⚽ ESFERA
+case 'esfera':
+let grad=ctx.createRadialGradient(200,120,20,220,150,80);
+grad.addColorStop(0,"#fff");
+grad.addColorStop(0.3,"#93c5fd");
+grad.addColorStop(1,"#1e3a8a");
+ctx.fillStyle=grad;
+ctx.beginPath();
+ctx.arc(220,150,80,0,Math.PI*2);
+ctx.fill();
+break;
+
+// 🥫 CILINDRO
+case 'cilindro':
+let gradCil=ctx.createLinearGradient(160,0,280,0);
+gradCil.addColorStop(0,"#1e40af");
+gradCil.addColorStop(0.5,"#60a5fa");
+gradCil.addColorStop(1,"#1e40af");
+ctx.fillStyle=gradCil;
+ctx.fillRect(160,100,120,100);
+
+ctx.beginPath();
+ctx.ellipse(220,100,60,20,0,0,Math.PI*2);
+ctx.fillStyle="#93c5fd";
+ctx.fill();
+
+ctx.beginPath();
+ctx.ellipse(220,200,60,20,0,0,Math.PI*2);
+ctx.fillStyle="#1e3a8a";
+ctx.fill();
+break;
+
+// 🔺 CONO
+case 'cono':
+let gradCono=ctx.createLinearGradient(160,200,280,200);
+gradCono.addColorStop(0,"#1e3a8a");
+gradCono.addColorStop(0.5,"#60a5fa");
+gradCono.addColorStop(1,"#1e3a8a");
+
+ctx.fillStyle=gradCono;
+ctx.beginPath();
+ctx.moveTo(220,80);
+ctx.lineTo(160,200);
+ctx.lineTo(280,200);
+ctx.closePath();
+ctx.fill();
+
+ctx.beginPath();
+ctx.ellipse(220,200,60,20,0,0,Math.PI);
+ctx.fillStyle="#1e40af";
+ctx.fill();
+break;
+
+// 📦 PRISMA
+case 'prisma':
+ctx.fillStyle="#60a5fa";
+ctx.fillRect(140,110,120,80);
+
+ctx.fillStyle="#3b82f6";
+ctx.beginPath();
+ctx.moveTo(260,110);
+ctx.lineTo(300,80);
+ctx.lineTo(300,160);
+ctx.lineTo(260,190);
+ctx.closePath();
+ctx.fill();
+
+ctx.fillStyle="#93c5fd";
+ctx.beginPath();
+ctx.moveTo(140,110);
+ctx.lineTo(180,80);
+ctx.lineTo(300,80);
+ctx.lineTo(260,110);
+ctx.closePath();
+ctx.fill();
+break;
+
+// irregulares
+case 'l':
+ctx.fillStyle="#60a5fa";
+ctx.fillRect(150,100,120,40);
+ctx.fillRect(150,100,40,120);
+break;
+
+case 't':
+ctx.fillStyle="#60a5fa";
+ctx.fillRect(150,100,120,40);
+ctx.fillRect(190,100,40,120);
+break;
+
+case 'cruz':
+ctx.fillStyle="#60a5fa";
+ctx.fillRect(180,80,40,160);
+ctx.fillRect(140,120,120,40);
+break;
+
+case 'cometa':
+ctx.fillStyle="#60a5fa";
+ctx.beginPath();
+ctx.moveTo(220,80);
+ctx.lineTo(280,150);
+ctx.lineTo(220,220);
+ctx.lineTo(160,150);
+ctx.closePath();
+ctx.fill();
+break;
+
+case 'l3d':
+ctx.fillStyle="#60a5fa";
+ctx.fillRect(150,120,100,40);
+ctx.fillRect(150,120,40,100);
+
+// profundidad
+ctx.fillStyle="#3b82f6";
+ctx.fillRect(180,100,100,40);
+ctx.fillRect(180,100,40,100);
+break;
+
+case 't3d':
+ctx.fillStyle="#60a5fa";
+ctx.fillRect(150,120,120,40);
+ctx.fillRect(190,120,40,100);
+
+ctx.fillStyle="#3b82f6";
+ctx.fillRect(180,100,120,40);
+ctx.fillRect(220,100,40,100);
+break;
+
+case 'cruz3d':
+ctx.fillStyle="#60a5fa";
+ctx.fillRect(180,80,40,160);
+ctx.fillRect(140,120,120,40);
+
+ctx.fillStyle="#3b82f6";
+ctx.fillRect(200,60,40,160);
+ctx.fillRect(160,100,120,40);
+break;
+
+case 'cometa3d':
+ctx.fillStyle="#60a5fa";
+ctx.beginPath();
+ctx.moveTo(220,80);
+ctx.lineTo(280,150);
+ctx.lineTo(220,220);
+ctx.lineTo(160,150);
+ctx.closePath();
+ctx.fill();
+
+ctx.fillStyle="#3b82f6";
+ctx.beginPath();
+ctx.moveTo(240,60);
+ctx.lineTo(300,150);
+ctx.lineTo(240,240);
+ctx.lineTo(180,150);
+ctx.closePath();
+ctx.fill();
+break;
+
+}
+}
+
+function val(i){
+let v=parseFloat(document.getElementById("v"+i).value);
+if(isNaN(v)||v<=0){alert("Valores inválidos"); throw "error";}
+return v;
+}
+
+function calcular(){
+
+try{
+
+let r=0;
+let u="cm²";
+
+switch(figura){
+
+case 'cuadrado': r=Math.pow(val(0),2); break;
+case 'rectangulo': r=val(0)*val(1); break;
+case 'circulo': r=Math.PI*Math.pow(val(0),2); break;
+case 'triangulo': r=(val(0)*val(1))/2; break;
+case 'trapecio': r=((val(0)+val(1))*val(2))/2; break;
+
+case 'cubo':
+let l=val(0);
+if(tipo==='volumen'){ r=Math.pow(l,3); u="cm³";}
+else{ r=6*Math.pow(l,2);}
+break;
+
+case 'esfera':
+let re=val(0);
+if(tipo==='volumen'){ r=(4/3)*Math.PI*Math.pow(re,3); u="cm³";}
+else{ r=4*Math.PI*Math.pow(re,2);}
+break;
+
+case 'cilindro':
+let rc=val(0),h=val(1);
+if(tipo==='volumen'){ r=Math.PI*rc*rc*h; u="cm³";}
+else{ r=2*Math.PI*rc*(rc+h);}
+break;
+
+case 'cono':
+let rco=val(0),hc=val(1);
+let g=Math.sqrt(rco*rco+hc*hc);
+if(tipo==='volumen'){ r=(1/3)*Math.PI*rco*rco*hc; u="cm³";}
+else{ r=Math.PI*rco*(rco+g);}
+break;
+
+case 'prisma':
+let b=val(0),hp=val(1);
+if(tipo==='volumen'){ r=b*hp; u="cm³";}
+else{ r=2*b+4*hp;}
+break;
+
+case 'l': r=(val(0)*val(2))+(val(1)-val(2))*val(2); break;
+case 't': r=val(0)*val(2)+(val(1)-val(2))*val(2); break;
+case 'cruz': r=5*Math.pow(val(0),2); break;
+case 'cometa': r=(val(0)*val(1))/2; break;
+
+case 'l3d':
+let areaL=(val(0)*val(2))+((val(1)-val(2))*val(2));
+if(tipo==='volumen'){ r=areaL*val(3); u="cm³";}
+else{ r=areaL;}
+break;
+
+case 't3d':
+let areaT=val(0)*val(2)+(val(1)-val(2))*val(2);
+if(tipo==='volumen'){ r=areaT*val(3); u="cm³";}
+else{ r=areaT;}
+break;
+
+case 'cruz3d':
+let areaC=5*Math.pow(val(0),2);
+if(tipo==='volumen'){ r=areaC*val(1); u="cm³";}
+else{ r=areaC;}
+break;
+
+case 'cometa3d':
+let areaK=(val(0)*val(1))/2;
+if(tipo==='volumen'){ r=areaK*val(2); u="cm³";}
+else{ r=areaK;}
+break;
+}
+
+document.getElementById("resultado").innerText=
+`Resultado: ${r.toFixed(2)} ${u}`;
+
+}catch(e){}
+
+}
+</script>
+
+</body>
+</html>
