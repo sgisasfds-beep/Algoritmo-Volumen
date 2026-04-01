@@ -1,0 +1,279 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Laboratorio Virtual | Geometría 3D</title>
+    <link rel="icon" href="data:,">
+
+    <script type="importmap">
+        {
+            "imports": {
+                "three": "https://unpkg.com/three@0.136.0/build/three.module.js"
+            }
+        }
+    </script>
+
+    <style>
+        /* Reset y Layout Base */
+        * { box-sizing: border-box; }
+        body, html { 
+            margin: 0; padding: 0; width: 100%; height: 100%; 
+            overflow: hidden; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; 
+            background-color: #f8f9fa;
+        }
+        
+        /* Contenedor Principal Flex */
+        #main-layout {
+            display: flex;
+            width: 100vw;
+            height: 100vh;
+        }
+
+        /* Barra Lateral de UI */
+        #ui-container { 
+            width: 320px; 
+            height: 100%;
+            background: #ffffff; 
+            border-right: 1px solid #dee2e6;
+            display: flex; 
+            flex-direction: column; 
+            padding: 30px 25px; 
+            z-index: 10;
+            flex-shrink: 0; /* Evita que la barra se encoja */
+        }
+        
+        h1 { font-size: 1.4rem; color: #1a237e; margin: 0 0 10px 0; border-bottom: 3px solid #1a237e; padding-bottom: 10px; }
+        .instr { font-size: 0.85rem; color: #607d8b; margin-bottom: 30px; line-height: 1.4; }
+
+        .panel-section { margin-bottom: 25px; }
+        .data-label { font-size: 0.75rem; color: #90a4ae; font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px; display: block; }
+        .data-value { font-size: 1.2rem; color: #263238; font-weight: 700; margin-bottom: 15px; display: block; }
+        .data-value.main { font-size: 1.8rem; color: #d32f2f; border-left: 5px solid #d32f2f; padding-left: 12px; margin-top: 5px; }
+        .data-value.secondary { color: #1e88e5; }
+
+        /* Botón Ajustado para no cortarse */
+        button#reset-btn { 
+            width: 100%; padding: 15px; background-color: #1a237e; color: white; 
+            border: none; border-radius: 8px; cursor: pointer; font-weight: bold;
+            font-size: 1rem; transition: background 0.3s; margin-top: auto; 
+            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+        }
+        button#reset-btn:hover { background-color: #0d1442; }
+
+        /* Contenedor 3D que ocupa el resto */
+        #three-container { 
+            flex-grow: 1; 
+            height: 100%; 
+            position: relative;
+            background: #f1f3f4;
+        }
+    </style>
+</head>
+<body>
+
+    <div id="main-layout">
+        <div id="ui-container">
+            <h1>Laboratorio de Volumen</h1>
+            <p class="instr">Arrastra la <b>Cruz</b> o la <b>L</b> hacia la probeta para medir el volumen por desplazamiento.</p>
+
+            <div class="panel-section">
+                <span class="data-label">Nivel Inicial (H₂O)</span>
+                <span class="data-value secondary">400.0 mL</span>
+
+                <span class="data-label">Lectura Actual</span>
+                <span class="data-value" id="current-water-level">400.0 mL</span>
+            </div>
+
+            <div class="panel-section">
+                <span class="data-label">Volumen del Objeto</span>
+                <span class="data-value main" id="object-volume">-- mL</span>
+            </div>
+
+            <button id="reset-btn">Reiniciar Simulación</button>
+        </div>
+
+        <div id="three-container"></div>
+    </div>
+
+    <script type="module">
+        import * as THREE from 'three';
+
+        let scene, camera, renderer, waterMesh;
+        const container = document.getElementById('three-container');
+        const initialWaterLevel = 400;
+        let draggableObjects = [];
+        let currentlyDragging = null;
+        
+        const raycaster = new THREE.Raycaster();
+        const mouse = new THREE.Vector2();
+        const plane = new THREE.Plane(new THREE.Vector3(0, 0, 1), 0); 
+        const offset = new THREE.Vector3();
+
+        init();
+        animate();
+
+        function init() {
+            scene = new THREE.Scene();
+            scene.background = new THREE.Color(0xf1f3f4);
+
+            // Cámara Fija y centrada
+            camera = new THREE.PerspectiveCamera(40, container.clientWidth / container.clientHeight, 1, 1000);
+            camera.position.set(0, 18, 50);
+            camera.lookAt(0, 10, 0);
+
+            renderer = new THREE.WebGLRenderer({ antialias: true });
+            renderer.setSize(container.clientWidth, container.clientHeight);
+            renderer.setPixelRatio(window.devicePixelRatio);
+            renderer.shadowMap.enabled = true;
+            container.appendChild(renderer.domElement);
+
+            // Luces
+            scene.add(new THREE.AmbientLight(0xffffff, 0.7));
+            const light = new THREE.DirectionalLight(0xffffff, 0.6);
+            light.position.set(10, 30, 20);
+            light.castShadow = true;
+            scene.add(light);
+
+            createSceneObjects();
+
+            // Eventos
+            container.addEventListener('mousedown', onMouseDown);
+            container.addEventListener('mousemove', onMouseMove);
+            window.addEventListener('mouseup', onMouseUp);
+            window.addEventListener('resize', onWindowResize); // Crucial para que no se corte al cambiar ventana
+            document.getElementById('reset-btn').addEventListener('click', () => location.reload());
+        }
+
+        function createSceneObjects() {
+            // Suelo técnico
+            const grid = new THREE.GridHelper(100, 20, 0xd0d0d0, 0xe0e0e0);
+            scene.add(grid);
+
+            // Probeta
+            const glassGeom = new THREE.CylinderGeometry(3.5, 3.5, 24, 32, 1, true);
+            const glassMat = new THREE.MeshStandardMaterial({ 
+                color: 0xdae1f2, transparent: true, opacity: 0.3, side: THREE.DoubleSide 
+            });
+            const probeta = new THREE.Mesh(glassGeom, glassMat);
+            probeta.position.set(12, 12, 0);
+            scene.add(probeta);
+
+            const base = new THREE.Mesh(
+                new THREE.CylinderGeometry(4.5, 4.5, 1.5, 32), 
+                new THREE.MeshStandardMaterial({color: 0x37474f})
+            );
+            base.position.set(12, 0.75, 0);
+            scene.add(base);
+
+            // Agua
+            waterMesh = new THREE.Mesh(
+                new THREE.CylinderGeometry(3.4, 3.4, 1, 32),
+                new THREE.MeshStandardMaterial({ color: 0x03a9f4, transparent: true, opacity: 0.6 })
+            );
+            updateWater(initialWaterLevel);
+            scene.add(waterMesh);
+
+            // --- FIGURAS GEOMÉTRICAS ---
+
+            // Cruz 3D (Naranja)
+            const groupCruz = new THREE.Group();
+            const c1 = new THREE.Mesh(new THREE.BoxGeometry(2, 7, 2), new THREE.MeshStandardMaterial({color: 0xff9800}));
+            const c2 = new THREE.Mesh(new THREE.BoxGeometry(7, 2, 2), new THREE.MeshStandardMaterial({color: 0xff9800}));
+            groupCruz.add(c1, c2);
+            groupCruz.position.set(-2, 4, 0);
+            groupCruz.userData = { volume: 165, startPos: groupCruz.position.clone() };
+            setupObject(groupCruz);
+
+            // L 3D (Verde)
+            const groupL = new THREE.Group();
+            const l1 = new THREE.Mesh(new THREE.BoxGeometry(2, 7, 2), new THREE.MeshStandardMaterial({color: 0x4caf50}));
+            const l2 = new THREE.Mesh(new THREE.BoxGeometry(4, 2, 2), new THREE.MeshStandardMaterial({color: 0x4caf50}));
+            l2.position.set(1, -2.5, 0);
+            groupL.add(l1, l2);
+            groupL.position.set(-11, 4, 0);
+            groupL.userData = { volume: 110, startPos: groupL.position.clone() };
+            setupObject(groupL);
+        }
+
+        function setupObject(obj) {
+            obj.traverse(child => { if(child.isMesh) child.castShadow = true; });
+            scene.add(obj);
+            draggableObjects.push(obj);
+        }
+
+        function updateWater(ml) {
+            const h = (ml / 1000) * 24;
+            waterMesh.scale.y = h;
+            waterMesh.position.set(12, 1.5 + h/2, 0);
+        }
+
+        // --- Lógica de Interacción ---
+        function onMouseDown(e) {
+            const rect = container.getBoundingClientRect();
+            mouse.x = ((e.clientX - rect.left) / rect.width) * 2 - 1;
+            mouse.y = -((e.clientY - rect.top) / rect.height) * 2 + 1;
+
+            raycaster.setFromCamera(mouse, camera);
+            const intersects = raycaster.intersectObjects(draggableObjects, true);
+
+            if (intersects.length > 0) {
+                let target = intersects[0].object;
+                while(target.parent !== scene) target = target.parent;
+                
+                currentlyDragging = target;
+                const intersectionPoint = new THREE.Vector3();
+                raycaster.ray.intersectPlane(plane, intersectionPoint);
+                offset.copy(intersectionPoint).sub(currentlyDragging.position);
+            }
+        }
+
+        function onMouseMove(e) {
+            if (!currentlyDragging) return;
+            const rect = container.getBoundingClientRect();
+            mouse.x = ((e.clientX - rect.left) / rect.width) * 2 - 1;
+            mouse.y = -((e.clientY - rect.top) / rect.height) * 2 + 1;
+
+            raycaster.setFromCamera(mouse, camera);
+            const intersectionPoint = new THREE.Vector3();
+            if (raycaster.ray.intersectPlane(plane, intersectionPoint)) {
+                currentlyDragging.position.copy(intersectionPoint.sub(offset));
+            }
+        }
+
+        function onMouseUp() {
+            if (currentlyDragging) {
+                // Área de detección de la probeta (x entre 8 y 16)
+                if (currentlyDragging.position.x > 8 && currentlyDragging.position.x < 16) {
+                    const vol = currentlyDragging.userData.volume;
+                    sumerge(currentlyDragging, vol);
+                } else {
+                    currentlyDragging.position.copy(currentlyDragging.userData.startPos);
+                }
+                currentlyDragging = null;
+            }
+        }
+
+        function sumerge(obj, vol) {
+            obj.position.set(12, 4, 0);
+            draggableObjects = draggableObjects.filter(o => o !== obj);
+            
+            const total = initialWaterLevel + vol;
+            updateWater(total);
+            document.getElementById('current-water-level').textContent = total.toFixed(1) + " mL";
+            document.getElementById('object-volume').textContent = vol.toFixed(1) + " mL";
+        }
+
+        function onWindowResize() {
+            camera.aspect = container.clientWidth / container.clientHeight;
+            camera.updateProjectionMatrix();
+            renderer.setSize(container.clientWidth, container.clientHeight);
+        }
+
+        function animate() {
+            requestAnimationFrame(animate);
+            renderer.render(scene, camera);
+        }
+    </script>
+</body>
+</html>

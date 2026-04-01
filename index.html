@@ -137,6 +137,15 @@ button{
     <div class="btn" onclick="setup('cometa3d',event)">Cometa 3D</div>
 </div>
 
+<h3>Laboratorio Avanzado</h3>
+<div class="menu-grid">
+    <div class="btn" 
+            onclick="window.location.href='irregular.html'" 
+            style="border: 2px solid #f59e0b; background: #fffbeb; font-weight: bold; color: #b45309;">
+            EXPERIMENTO 3D
+    </div>
+</div>
+
 <div class="workspace">
 
 <div class="controls" id="inputs">
@@ -171,7 +180,7 @@ e.target.classList.add('active');
 const inputs=document.getElementById("inputs");
 inputs.innerHTML=`<h3>${f.toUpperCase()}</h3>`;
 
-// tipo cálculo
+
 if(f.includes("3d") || ['cubo','esfera','cilindro','cono','prisma'].includes(f)){
 inputs.innerHTML+=`
 <select onchange="tipo=this.value">
@@ -183,7 +192,7 @@ tipo='area';
 inputs.innerHTML+=`<p>Solo área disponible</p>`;
 }
 
-// inputs
+
 const cfg={
 cuadrado:['Lado'],
 rectangulo:['Base','Altura'],
@@ -239,7 +248,7 @@ ctx.arc(220,150,60,0,Math.PI*2);
 ctx.fill();
 break;
 
-// 🔥 CUBO 3D
+
 case 'cubo':
 ctx.fillStyle="#60a5fa";
 ctx.fillRect(150,100,100,100);
@@ -263,7 +272,7 @@ ctx.closePath();
 ctx.fill();
 break;
 
-// ⚽ ESFERA
+
 case 'esfera':
 let grad=ctx.createRadialGradient(200,120,20,220,150,80);
 grad.addColorStop(0,"#fff");
@@ -275,7 +284,7 @@ ctx.arc(220,150,80,0,Math.PI*2);
 ctx.fill();
 break;
 
-// 🥫 CILINDRO
+
 case 'cilindro':
 let gradCil=ctx.createLinearGradient(160,0,280,0);
 gradCil.addColorStop(0,"#1e40af");
@@ -295,7 +304,7 @@ ctx.fillStyle="#1e3a8a";
 ctx.fill();
 break;
 
-// 🔺 CONO
+
 case 'cono':
 let gradCono=ctx.createLinearGradient(160,200,280,200);
 gradCono.addColorStop(0,"#1e3a8a");
@@ -316,7 +325,7 @@ ctx.fillStyle="#1e40af";
 ctx.fill();
 break;
 
-// 📦 PRISMA
+
 case 'prisma':
 ctx.fillStyle="#60a5fa";
 ctx.fillRect(140,110,120,80);
@@ -340,7 +349,7 @@ ctx.closePath();
 ctx.fill();
 break;
 
-// irregulares
+
 case 'l':
 ctx.fillStyle="#60a5fa";
 ctx.fillRect(150,100,120,40);
@@ -375,7 +384,7 @@ ctx.fillStyle="#60a5fa";
 ctx.fillRect(150,120,100,40);
 ctx.fillRect(150,120,40,100);
 
-// profundidad
+
 ctx.fillStyle="#3b82f6";
 ctx.fillRect(180,100,100,40);
 ctx.fillRect(180,100,40,100);
